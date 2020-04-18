@@ -1,0 +1,23 @@
+{
+  "name": "5374nuxt",
+  "version": "1.0.0",
+  "description": "5374 Vue version",
+  "author": "小泉勝志郎",
+  "private": true,
+  "scripts": {
+    "dev": "nuxt",
+    "build": "nuxt build",
+    "start": "nuxt start",
+    "generate": "nuxt generate"
+  },
+  "dependencies": {
+    "@nuxtjs/axios": "^5.3.6",
+    "bootstrap": "^4.4.1",
+    "bootstrap-vue": "^2.11.0",
+    "nuxt": "^2.0.0",
+    "vue": "^2.6.11"
+  },
+  "devDependencies": {
+    "@nuxt/typescript-build": "^0.6.0"
+  }
+}

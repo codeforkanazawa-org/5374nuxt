@@ -1,10 +1,33 @@
 <template>
   <div>
   <style id="accordion-style" type="text/css"></style>
-  <div id="accordion"></div>
+  <div id="accordion">
+    <div class="accordion-group">
+      <div class="accordion-heading">
+        <a class="accordion-toggle" v-b-toggle="'collapse-2'" href="#collapse">
+          <div class="accordion-table">
+            <p class="text-center">燃えるごみ</p>
+          </div>
+          <h6><p class="text-left date">2020/04/19</p></h6>
+        </a>
+      </div>
+
+      <!-- Element to collapse -->
+      <b-collapse id="collapse-2">
+        <b-card>
+          <div id="collapse" class="accordion-body">
+            <div class="accordion-inner">
+              「週2回の燃やすごみの日」に出せるものです。半透明の袋に入れて出してください。<br>
+              
+            </div>  
+          </div>
+        </b-card>
+      </b-collapse>
+    </div>
+  </div>
   <select class="form-control" id="select_area"></select>
     <div class="accordion" id="accordion3">
-      <b-button v-b-toggle.collapse-1 variant="primary">5374.jpについて</b-button>
+      <b-button variant="link" class="accordion-toggle-top" v-b-toggle.collapse-1>5374.jpについて</b-button>
       <b-collapse id="collapse-1" class="mt-2">
         <b-card>
           <!-- <p class="card-text">Collapse contents Here</p> -->
@@ -88,6 +111,8 @@ export default Vue.extend({
     ],
   },
   components: {
+  },
+  created:function(){
 
   }
 })

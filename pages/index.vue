@@ -4,7 +4,7 @@
   <div id="accordion">
     <div class="accordion-group">
       <div class="accordion-heading">
-        <a class="accordion-toggle" v-b-toggle="'collapse-2'" href="#collapse">
+        <a class="accordion-toggle" v-b-toggle="'collapse-2'" href="#collapse" style="background-color:#ff0000;">
           <div class="accordion-table">
             <p class="text-center">燃えるごみ</p>
           </div>
@@ -17,15 +17,25 @@
         <b-card>
           <div id="collapse" class="accordion-body">
             <div class="accordion-inner">
-              「週2回の燃やすごみの日」に出せるものです。半透明の袋に入れて出してください。<br>
-              
+              <h3>「週2回の燃やすごみの日」に出せるものです。半透明の袋に入れて出してください。</h3>
+              <h4 class="initials">あ</h4>
+              <ul>
+                <li style="list-style:none;">
+                  <div>アイスクリームのカップ容器紙製</div>
+                  <div class="note"></div>
+                </li>
+              </ul>
+              <div class="targetDays"></div>
             </div>  
           </div>
         </b-card>
       </b-collapse>
     </div>
   </div>
-  <select class="form-control" id="select_area"></select>
+  <select class="form-control" id="select_area">
+    <option value="-1">地域を選択してください</option>
+    <option v-for="(area,key) in areaModels" value="key" :key="key">{{area.label}}</option>
+  </select>
     <div class="accordion" id="accordion3">
       <b-button variant="link" class="accordion-toggle-top" v-b-toggle.collapse-1>5374.jpについて</b-button>
       <b-collapse id="collapse-1" class="mt-2">
@@ -86,6 +96,7 @@ CfKは市民のための組織です。行政や民間企業の影響を受け�
 
 <script lang="ts">
 import Vue from 'vue'
+import axios from 'axios'
 import { BootstrapVue, IconsPlugin } from 'bootstrap-vue'
 import { BCollapse } from 'bootstrap-vue'
 
@@ -103,17 +114,74 @@ Vue.use(CardPlugin)
 import { ButtonPlugin } from 'bootstrap-vue'
 Vue.use(ButtonPlugin)
 
+import { AreaModel } from '@/scripts/script'
+
 export default Vue.extend({
   head: {
     script: [
-    { src: 'https://sans-culotte.info/js/pdfmake.js' },
-    { src: 'https://sans-culotte.info/js/vfs_fonts.js' },
     ],
   },
   components: {
   },
-  created:function(){
+  data:function(){
+    return {
+      center_data: [],
+      descriptions: [],
+      areaModels: new Array<AreaModel>(),
+      remarks: []  
 
+    }
+  },
+  created:function(){
+    //this.csvToArray('/data/area_days.csv',null);
+    this.updateAreaList();
+  },
+  methods:{
+    csvToArray:function(filename: string,cb: any){
+      try{
+        axios.get(filename)
+        .then(function (response) {
+          let csvdata =  response.data;
+          var line = csvdata.split("\n"),
+              ret = [];
+          for (var i in line) {
+            //空行はスルーする。
+            if (line[i].length == 0) continue;
+
+            var row = line[i].split(",");
+            ret.push(row);
+          }
+          //console.log("csv ret:",ret);
+          cb(ret);
+        }).catch(function (error) {
+          console.log("axios error:",error);
+        });
+      }catch(e){
+        console.log(e);
+      }
+    },
+    updateAreaList: function(){
+      let self = this;
+      self.csvToArray("data/area_days.csv", function(tmp: any) {
+      var area_days_label = tmp.shift();
+      for (var i in tmp) {
+        var row = tmp[i];
+        var area = new AreaModel();
+        area.label = row[0];
+        area.centerName = row[1];
+
+        self.areaModels.push(area);
+        console.log("self.areaModels",self.areaModels);
+        //２列目以降の処理
+        // for (var r = 2; r < 2 + MaxDescription; r++) {
+        //   if (area_days_label[r]) {
+        //     var trash = new TrashModel(area_days_label[r], row[r], self.remarks);
+        //     area.trash.push(trash);
+        //   }
+        // }
+      }
+      });
+    }
   }
 })
 </script>

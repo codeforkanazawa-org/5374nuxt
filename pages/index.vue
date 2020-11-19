@@ -1,40 +1,10 @@
 <template>
   <div>
   <style id="accordion-style" type="text/css"></style>
-  <div id="accordion">
-    <div class="accordion-group">
-      <div class="accordion-heading">
-        <a class="accordion-toggle" v-b-toggle="'collapse-2'" href="#collapse" style="background-color:#ff0000;">
-          <div class="accordion-table">
-            <p class="text-center">燃えるごみ</p>
-          </div>
-          <h6><p class="text-left date">2020/04/19</p></h6>
-        </a>
-      </div>
-
-      <!-- Element to collapse -->
-      <b-collapse id="collapse-2">
-        <b-card>
-          <div id="collapse" class="accordion-body">
-            <div class="accordion-inner">
-              <h3>「週2回の燃やすごみの日」に出せるものです。半透明の袋に入れて出してください。</h3>
-              <h4 class="initials">あ</h4>
-              <ul>
-                <li style="list-style:none;">
-                  <div>アイスクリームのカップ容器紙製</div>
-                  <div class="note"></div>
-                </li>
-              </ul>
-              <div class="targetDays"></div>
-            </div>  
-          </div>
-        </b-card>
-      </b-collapse>
-    </div>
-  </div>
-  <select class="form-control" id="select_area">
+  <trash :area="currentArea" />
+  <select class="form-control" id="select_area" @change="onChangeSelect">
     <option value="-1">地域を選択してください</option>
-    <option v-for="(area,key) in areaModels" value="key" :key="key">{{area.label}}</option>
+    <option v-for="(area,key) in areaModels" :value="key" :key="key">{{area.label}}</option>
   </select>
     <div class="accordion" id="accordion3">
       <b-button variant="link" class="accordion-toggle-top" v-b-toggle.collapse-1>5374.jpについて</b-button>
@@ -114,26 +84,31 @@ Vue.use(CardPlugin)
 import { ButtonPlugin } from 'bootstrap-vue'
 Vue.use(ButtonPlugin)
 
-import { AreaModel } from '@/scripts/script'
+import { AreaModel, TrashModel, RemarkModel, DescriptionModel, TargetRowModel } from '@/scripts/script'
+import { MaxDescription } from '@/scripts/setting'
+
+import trash from '~/components/trash.vue'
 
 export default Vue.extend({
-  head: {
-    script: [
-    ],
-  },
+  // head: {
+  //   script: [
+  //   ],
+  // },
   components: {
+    trash
   },
   data:function(){
     return {
       center_data: [],
       descriptions: [],
       areaModels: new Array<AreaModel>(),
-      remarks: []  
-
+      remarks: [],
+      currentArea: new AreaModel(),
     }
   },
   created:function(){
     //this.csvToArray('/data/area_days.csv',null);
+    this.createMenuList();
     this.updateAreaList();
   },
   methods:{
@@ -141,6 +116,7 @@ export default Vue.extend({
       try{
         axios.get(filename)
         .then(function (response) {
+          //console.log("axios:",response);
           let csvdata =  response.data;
           var line = csvdata.split("\n"),
               ret = [];
@@ -162,25 +138,78 @@ export default Vue.extend({
     },
     updateAreaList: function(){
       let self = this;
+      // var MaxDescription = 9;
+      console.log("MaxDescription",MaxDescription)
       self.csvToArray("data/area_days.csv", function(tmp: any) {
-      var area_days_label = tmp.shift();
-      for (var i in tmp) {
-        var row = tmp[i];
-        var area = new AreaModel();
-        area.label = row[0];
-        area.centerName = row[1];
+        //console.log(tmp)
+        var area_days_label = tmp.shift();
+        for (var i in tmp) {
+          var row = tmp[i];
+          var area = new AreaModel();
+          area.label = row[0];
+          area.centerName = row[1];
 
-        self.areaModels.push(area);
-        console.log("self.areaModels",self.areaModels);
-        //２列目以降の処理
-        // for (var r = 2; r < 2 + MaxDescription; r++) {
-        //   if (area_days_label[r]) {
-        //     var trash = new TrashModel(area_days_label[r], row[r], self.remarks);
-        //     area.trash.push(trash);
-        //   }
-        // }
-      }
+          self.areaModels.push(area);
+          console.log("self.areaModels",self.areaModels);
+          // ２列目以降の処理
+          for (var r = 2; r < 2 + MaxDescription; r++) {
+            if (area_days_label[r]) {
+              var trash = new TrashModel(area_days_label[r], row[r], self.remarks);
+              self.putDescription(trash);
+              area.trash.push(trash);
+            }
+          }
+          console.log("area.trash",area.trash);
+
+          //ラベルが同じになるdescriptionを取得
+
+        }
       });
+    },
+    createMenuList: function(){
+      let self = this;
+      // 備考データを読み込む
+      this.csvToArray("data/remarks.csv", function(data) {
+        data.shift();
+        for (var i in data) {
+          self.remarks.push(new RemarkModel(data[i]));
+        }
+        console.log("remarks",self.remarks);
+      });
+      this.csvToArray("data/description.csv", function(data) {
+        data.shift();
+        for (var i in data) {
+          self.descriptions.push(new DescriptionModel(data[i]));
+        }
+        console.log("description",self.descriptions);
+      });
+    },
+    putDescription: function(trash:TrashModel){
+      //ラベルが同じになるdescriptionを取得
+      for (var d_no in this.descriptions) {
+        var description = this.descriptions[d_no];
+        if (description.label == trash.label) {
+          trash.description = description;
+          break;
+        }
+      }
+    },
+    onChangeSelect: function(e){
+      let row_index = parseInt(e.target.value);
+      console.log("row_index",row_index);
+      if (row_index == -1) {
+        // $("#accordion").html("");
+        this.setSelectedAreaName("");
+        return;
+      }
+      this.setSelectedAreaName(this.areaModels[row_index].label);
+      this.currentArea = this.areaModels[row_index];
+    },
+    getSelectedAreaName: function() {
+      return localStorage.getItem("selected_area_name");
+    },
+    setSelectedAreaName: function(name: string) {
+      localStorage.setItem("selected_area_name", name);
     }
   }
 })

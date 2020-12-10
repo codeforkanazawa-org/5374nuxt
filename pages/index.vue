@@ -2,7 +2,7 @@
   <div>
   <style id="accordion-style" type="text/css"></style>
   <trash :area="currentArea" />
-  <select class="form-control" id="select_area" @change="onChangeSelect">
+  <select class="form-control" refs="select" v-model="selected" id="select_area" @change="onChangeSelect">
     <option value="-1">地域を選択してください</option>
     <option v-for="(area,key) in areaModels" :value="key" :key="key">{{area.label}}</option>
   </select>
@@ -70,8 +70,8 @@ import axios from 'axios'
 import { BootstrapVue, IconsPlugin } from 'bootstrap-vue'
 import { BCollapse } from 'bootstrap-vue'
 
-import 'bootstrap/dist/css/bootstrap.css'
-import 'bootstrap-vue/dist/bootstrap-vue.css'
+import '../static/css/bootstrap.min.css'
+import '../static/css/custom.css'
 // Install BootstrapVue
 Vue.use(BootstrapVue)
 // Optionally install the BootstrapVue icon components plugin
@@ -90,33 +90,28 @@ import { MaxDescription } from '@/scripts/setting'
 import trash from '~/components/trash.vue'
 
 export default Vue.extend({
-  // head: {
-  //   script: [
-  //   ],
-  // },
   components: {
     trash
   },
   data:function(){
     return {
       center_data: [],
-      descriptions: [],
+      descriptions: new Array<DescriptionModel>(),
       areaModels: new Array<AreaModel>(),
-      remarks: [],
+      remarks: new Array<RemarkModel>(),
+      targets: [],
       currentArea: new AreaModel(),
+      selected:'-1',
     }
   },
   created:function(){
-    //this.csvToArray('/data/area_days.csv',null);
     this.createMenuList();
-    this.updateAreaList();
   },
   methods:{
-    csvToArray:function(filename: string,cb: any){
+    csvToArray:function(filename: string,cb: (tmp: string[][])=>void){
       try{
         axios.get(filename)
         .then(function (response) {
-          //console.log("axios:",response);
           let csvdata =  response.data;
           var line = csvdata.split("\n"),
               ret = [];
@@ -127,10 +122,9 @@ export default Vue.extend({
             var row = line[i].split(",");
             ret.push(row);
           }
-          //console.log("csv ret:",ret);
           cb(ret);
         }).catch(function (error) {
-          console.log("axios error:",error);
+          console.log("axios error:" + filename,error);
         });
       }catch(e){
         console.log(e);
@@ -138,10 +132,8 @@ export default Vue.extend({
     },
     updateAreaList: function(){
       let self = this;
-      // var MaxDescription = 9;
       console.log("MaxDescription",MaxDescription)
-      self.csvToArray("data/area_days.csv", function(tmp: any) {
-        //console.log(tmp)
+      self.csvToArray("data/area_days.csv", function(tmp: string[][]) {
         var area_days_label = tmp.shift();
         for (var i in tmp) {
           var row = tmp[i];
@@ -150,38 +142,82 @@ export default Vue.extend({
           area.centerName = row[1];
 
           self.areaModels.push(area);
-          console.log("self.areaModels",self.areaModels);
+          console.log("self.areaModels" + i,self.areaModels);
           // ２列目以降の処理
           for (var r = 2; r < 2 + MaxDescription; r++) {
             if (area_days_label[r]) {
-              var trash = new TrashModel(area_days_label[r], row[r], self.remarks);
+              var trash = new TrashModel(area_days_label[r], row[r], self.remarks, r);
               self.putDescription(trash);
               area.trash.push(trash);
             }
           }
-          console.log("area.trash",area.trash);
-
-          //ラベルが同じになるdescriptionを取得
-
+          console.log("area.trash" + i,area.trash);
+        }
+        var selected_name = self.getSelectedAreaName();
+        console.log("selected_name",selected_name);
+        for(var i in self.areaModels){
+          if(self.areaModels[i].label == selected_name){
+            self.selected = "" + i;
+            console.log("self.selected",self.selected);
+            self.currentArea = self.areaModels[i];
+            break;
+          }
         }
       });
     },
     createMenuList: function(){
       let self = this;
       // 備考データを読み込む
-      this.csvToArray("data/remarks.csv", function(data) {
+      this.csvToArray("data/remarks.csv", function(data: string[][]) {
         data.shift();
         for (var i in data) {
           self.remarks.push(new RemarkModel(data[i]));
         }
         console.log("remarks",self.remarks);
       });
-      this.csvToArray("data/description.csv", function(data) {
+      this.csvToArray("data/description.csv", function(data: string[][]) {
         data.shift();
         for (var i in data) {
           self.descriptions.push(new DescriptionModel(data[i]));
         }
-        console.log("description",self.descriptions);
+
+        self.csvToArray("data/target.csv", function(targets: string[][]) {
+          targets.shift();
+          self.targets = targets;
+          self.putTarget();
+          console.log("targets",targets);
+          console.log("descriptions",self.descriptions);
+
+          //ふりがなごとに連想配列を作る
+          for (var i in self.descriptions) {
+            var description = self.descriptions[i];
+            console.log("description i:"+i,description.label);
+            var targetFuri = [];
+            var prevFurigana = "";
+            var targetMap = {};
+            for(var j in description.targets){
+              console.log("targets j:"+i,description.targets[j]);
+              //ふりがなが変わったらふりがなごとの配列に追加
+              if(prevFurigana != description.targets[j].furigana 
+              && prevFurigana != ""){
+                targetMap[prevFurigana] = targetFuri;
+                targetFuri=[];
+              }
+              prevFurigana = description.targets[j].furigana;
+              targetFuri.push(description.targets[j]);
+            }
+
+            //最後のふりがなの追加
+            if(prevFurigana != ""){
+              targetMap[prevFurigana] = targetFuri;
+            }
+            description.targetMap = targetMap;
+            
+          }
+          self.updateAreaList();
+          console.log("self.descriptions",self.descriptions);
+        });
+
       });
     },
     putDescription: function(trash:TrashModel){
@@ -194,11 +230,31 @@ export default Vue.extend({
         }
       }
     },
-    onChangeSelect: function(e){
+    putTarget: function(){
+      for(var i in this.targets){
+        var row = new TargetRowModel(this.targets[i]);
+        console.log("putTarget i:" + i,row);
+        for(var j in this.descriptions){
+          if (this.descriptions[j].label == row.label) {
+            this.descriptions[j].targets.push(row);
+            break;
+          }
+        }
+      }
+      for(var i in this.descriptions){
+        //ふりがなで並べ替え
+        this.descriptions[i].targets.sort(function(a, b) {
+          if (a.furigana < b.furigana) return -1;
+          if (a.furigana > b.furigana) return 1;
+          return 0;
+        });
+      }
+
+    },
+    onChangeSelect: function(e:any){
       let row_index = parseInt(e.target.value);
       console.log("row_index",row_index);
       if (row_index == -1) {
-        // $("#accordion").html("");
         this.setSelectedAreaName("");
         return;
       }
